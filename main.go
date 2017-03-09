@@ -47,8 +47,8 @@ func getTagAndLoad(inData []byte) (Dot11Tag, int, error) {
 	}
 }
 
-func IsDot11ProbeRequestPacket(inPacket, gopacket.Packet) bool {
-	wlan := packet.Layer(layers.LayerTypeDot11)
+func IsDot11ProbeRequestPacket(inPacket gopacket.Packet) bool {
+	wlan := inPacket.Layer(layers.LayerTypeDot11)
 	if wlan != nil {
 		wlanPacket, _ := wlan.(*layers.Dot11)
 		if wlanPacket.Type == 0x10 {
@@ -58,8 +58,41 @@ func IsDot11ProbeRequestPacket(inPacket, gopacket.Packet) bool {
 	return false
 }
 
+func GetDecodedWLAN(packet gopacket.Packet) (*layers.Dot11, error) {
+	wlan := packet.Layer(layers.LayerTypeDot11)
+	if wlan != nil {
+		decoded, _ := wlan.(*layers.Dot11)
+		return decoded, nil
+	} else {
+		return nil, errors.New("No 802.11 Packet present.")
+	}
+}
+
+func IsWLANPacket(packet gopacket.Packet) bool {
+	if packet.Layer(layers.LayerTypeDot11) != nil {
+		return true
+	} else {
+		return false
+	}
+}
+
 func GetDot11ProbeRequest(inPacket gopacket.Packet) (Dot11ProbeRequest, error) {
-	return Dot11ProbeRequest{}, nil
+	wlanPacket, _ := inPacket.Layer(layers.LayerTypeDot11).(*layers.Dot11)
+	payload := wlanPacket.LayerPayload()
+	start := 0
+	var decomposedPacket []Dot11Tag
+	for start < len(payload) {
+		pl, rem, err := getTagAndLoad(payload[start:])
+		if err == nil {
+			decomposedPacket = append(decomposedPacket, pl)
+			start += rem
+		} else {
+			log.Debug("Malformed packet.")
+			// This is probably a malformed packet.
+			break // we should quit while we are ahead
+		}
+	}
+	return Dot11ProbeRequest{Tags: decomposedPacket}, nil
 }
 
 func main() {
@@ -74,31 +107,41 @@ func main() {
 	// Open file instead of device
 	handle, err = pcap.OpenOffline(pcapFile)
 	if err != nil {
-		panic(fmt.Sprintf("Bad! %s", err))
+		msg := fmt.Sprintf("Bad! %s", err)
+		log.Critical(msg)
+		panic(msg)
 	}
 	defer handle.Close()
 
-	// Loop through packets in file
+	// Loop through packets in file and analyze away!
+
+	/*
+		Now we need:
+		- A map of users by MAC
+		- Each user has a list of unique SSIDs
+	*/
+
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 	for packet := range packetSource.Packets() {
-		wlan := packet.Layer(layers.LayerTypeDot11)
-		if wlan != nil {
+		// fmt.Println(packet.Dump())
+		// fmt.Println(gopacket.LayerString(packet.Layer(layers.LayerTypeDot11)))
+		/*
+			wlan := packet.Layer(layers.LayerTypeDot11)
 			wlanPacket, _ := wlan.(*layers.Dot11)
-			if wlanPacket.Type == 0x10 {
-				var decomposedPacket []Dot11Tag
-				fmt.Println(wlanPacket.Type)
-				payload := wlanPacket.LayerPayload()
-				fmt.Printf("Payload: \n %#X\n", payload)
-				start := 0
-				fmt.Printf("Length of payload: %d\n", len(payload))
-				for start < len(payload) {
-					pl, rem, err := getTagAndLoad(payload[start:])
-					if err == nil {
-						decomposedPacket = append(decomposedPacket, pl)
-						start += rem
-					} else {
-						fmt.Println("Something went wrong. %s\n", err)
-						break // we should quit while we are ahead
+			fmt.Printf("%s", wlanPacket.Address2) */
+		if IsWLANPacket(packet) {
+			decodedWLAN, err := GetDecodedWLAN(packet)
+			if err == nil {
+				fmt.Printf("MAC: %s\n", decodedWLAN.Address2)
+			}
+		}
+
+		if IsDot11ProbeRequestPacket(packet) {
+			packetData, err := GetDot11ProbeRequest(packet)
+			if err == nil {
+				for _, element := range packetData.Tags {
+					if element.Type == 0 && element.Length > 0 {
+						fmt.Printf("SSID: %s\n", element.Payload)
 					}
 				}
 			}
