@@ -40,10 +40,10 @@ func getTagAndLoad(inData []byte) (Dot11Tag, int, error) {
 			payload := inData[2 : 2+length]
 			return Dot11Tag{Type: tag, Length: length, Payload: payload}, length + 2, nil
 		} else {
-			return Dot11Tag{}, -1, errors.New("array too short, < 2")
+			return Dot11Tag{}, -1, errors.New(fmt.Sprintf("array too short, tried %d but len is %d", length+2, len(inData)))
 		}
 	} else {
-		return Dot11Tag{}, -1, errors.New("array too short < len")
+		return Dot11Tag{}, -1, errors.New("array too short < 2")
 	}
 }
 
