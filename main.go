@@ -76,6 +76,15 @@ func IsWLANPacket(packet gopacket.Packet) bool {
 	}
 }
 
+func StringInArray(strArray []string, searchString string) bool {
+	for _, v := range strArray {
+		if v == searchString {
+			return true
+		}
+	}
+	return false
+}
+
 func GetDot11ProbeRequest(inPacket gopacket.Packet) (Dot11ProbeRequest, error) {
 	wlanPacket, _ := inPacket.Layer(layers.LayerTypeDot11).(*layers.Dot11)
 	payload := wlanPacket.LayerPayload()
@@ -121,6 +130,9 @@ func main() {
 		- Each user has a list of unique SSIDs
 	*/
 
+	var userMap = make(map[string][]string)
+	var macAddress string = " "
+
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 	for packet := range packetSource.Packets() {
 		// fmt.Println(packet.Dump())
@@ -132,19 +144,31 @@ func main() {
 		if IsWLANPacket(packet) {
 			decodedWLAN, err := GetDecodedWLAN(packet)
 			if err == nil {
-				fmt.Printf("MAC: %s\n", decodedWLAN.Address2)
+				macAddress = fmt.Sprintf("%s", decodedWLAN.Address2)
+			} else {
+				macAddress = " "
 			}
-		}
 
-		if IsDot11ProbeRequestPacket(packet) {
-			packetData, err := GetDot11ProbeRequest(packet)
-			if err == nil {
-				for _, element := range packetData.Tags {
-					if element.Type == 0 && element.Length > 0 {
-						fmt.Printf("SSID: %s\n", element.Payload)
+			if IsDot11ProbeRequestPacket(packet) {
+				packetData, err := GetDot11ProbeRequest(packet)
+				if err == nil {
+					for _, element := range packetData.Tags {
+						if element.Type == 0 && element.Length > 0 {
+							if macAddress != " " && userMap[macAddress] == nil {
+								userMap[macAddress] = []string{string(element.Payload)}
+							} else {
+								if !StringInArray(userMap[macAddress], string(element.Payload)) {
+									userMap[macAddress] = append(userMap[macAddress], string(element.Payload))
+								}
+							}
+						}
 					}
 				}
 			}
 		}
+	}
+
+	for k, v := range userMap {
+		fmt.Printf("%s %s\n", k, v)
 	}
 }
