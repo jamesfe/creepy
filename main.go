@@ -1,12 +1,20 @@
 package main
 
-import "github.com/google/gopacket"
-import "github.com/google/gopacket/pcap"
-import "github.com/google/gopacket/layers"
+import (
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+	"github.com/google/gopacket/pcap"
+	"github.com/op/go-logging"
+)
 
 import "errors"
 import "fmt"
 import "flag"
+
+var log = logging.MustGetLogger("creepypacket")
+var format = logging.MustStringFormatter(
+	`%{color}%{time:15:04:05.000} %{shortfunc} ▶ %{level:.8s} %{id:03x}%{color:reset} %{message}`,
+)
 
 var (
 	pcapFile string
@@ -55,6 +63,10 @@ func GetDot11ProbeRequest(inPacket gopacket.Packet) (Dot11ProbeRequest, error) {
 }
 
 func main() {
+	// Set the logs
+	logging.SetFormatter(format)
+
+	// load the file
 	var filename = flag.String("filename", "", "input filename")
 	flag.Parse()
 	pcapFile = *filename
