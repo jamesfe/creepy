@@ -14,18 +14,21 @@ That being said, if the PCAP format for 802.11 Probe Request tags ever changes, 
 
 Not a fair fight!  But if you want numbers:
 
-Creepy
-------
+##Creepy
 
-```time ./creepy --filename=blah.pcap
+```bash
+time ./creepy --filename=blah.pcap
 real    0m2.268s
 user    0m4.389s
-sys     0m0.346s```
+sys     0m0.346s
+```
 
-Python Script
--------------
+##Python Script
 
-```time python blah.py --filename=blah.pcap
+```bash
+time python blah.py --filename=blah.pcap
 real    13m28.068s
 user    18m34.628s
-sys     0m7.651s```
+sys     0m7.651s
+```
+    
