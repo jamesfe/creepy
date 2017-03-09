@@ -136,15 +136,17 @@ func main() {
 
 			if IsDot11ProbeRequestPacket(packet) {
 				packetData, err := GetDot11ProbeRequest(packet)
-				if err == nil {
-					for _, element := range packetData.Tags {
-						if element.Type == 0 && element.Length > 0 {
-							if macAddress != " " && userMap[macAddress] == nil {
-								userMap[macAddress] = []string{string(element.Payload)}
-							} else {
-								if !StringInArray(userMap[macAddress], string(element.Payload)) {
-									userMap[macAddress] = append(userMap[macAddress], string(element.Payload))
-								}
+				if err != nil {
+					continue
+				}
+				for _, element := range packetData.Tags {
+					// loop here, refactor guts?
+					if element.Type == 0 && element.Length > 0 {
+						if macAddress != " " && userMap[macAddress] == nil {
+							userMap[macAddress] = []string{string(element.Payload)}
+						} else {
+							if !StringInArray(userMap[macAddress], string(element.Payload)) {
+								userMap[macAddress] = append(userMap[macAddress], string(element.Payload))
 							}
 						}
 					}
