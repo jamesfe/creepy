@@ -1,4 +1,4 @@
-package main
+package creepy
 
 import (
 	"github.com/google/gopacket"
@@ -48,12 +48,9 @@ func getTagAndLoad(inData []byte) (Dot11Tag, int, error) {
 }
 
 func IsDot11ProbeRequestPacket(inPacket gopacket.Packet) bool {
-	wlan := inPacket.Layer(layers.LayerTypeDot11)
-	if wlan != nil {
-		wlanPacket, _ := wlan.(*layers.Dot11)
-		if wlanPacket.Type == 0x10 {
-			return true
-		}
+	wlanPacket, _ := GetDecodedWLAN(inPacket)
+	if wlanPacket.Type == 0x10 {
+		return true
 	}
 	return false
 }
@@ -77,6 +74,7 @@ func IsWLANPacket(packet gopacket.Packet) bool {
 }
 
 func StringInArray(strArray []string, searchString string) bool {
+	// Kind of hurts my soul to write this function, there must be a better way.
 	for _, v := range strArray {
 		if v == searchString {
 			return true
@@ -86,7 +84,7 @@ func StringInArray(strArray []string, searchString string) bool {
 }
 
 func GetDot11ProbeRequest(inPacket gopacket.Packet) (Dot11ProbeRequest, error) {
-	wlanPacket, _ := inPacket.Layer(layers.LayerTypeDot11).(*layers.Dot11)
+	wlanPacket, _ := GetDecodedWLAN(inPacket)
 	payload := wlanPacket.LayerPayload()
 	start := 0
 	var decomposedPacket []Dot11Tag
@@ -122,25 +120,12 @@ func main() {
 	}
 	defer handle.Close()
 
-	// Loop through packets in file and analyze away!
-
-	/*
-		Now we need:
-		- A map of users by MAC
-		- Each user has a list of unique SSIDs
-	*/
-
 	var userMap = make(map[string][]string)
-	var macAddress string = " "
+	var macAddress string = " " // must be a better way to deal with this?
 
+	// Scan all the packets...
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 	for packet := range packetSource.Packets() {
-		// fmt.Println(packet.Dump())
-		// fmt.Println(gopacket.LayerString(packet.Layer(layers.LayerTypeDot11)))
-		/*
-			wlan := packet.Layer(layers.LayerTypeDot11)
-			wlanPacket, _ := wlan.(*layers.Dot11)
-			fmt.Printf("%s", wlanPacket.Address2) */
 		if IsWLANPacket(packet) {
 			decodedWLAN, err := GetDecodedWLAN(packet)
 			if err == nil {
